@@ -8,7 +8,7 @@
 
 enum {
     DEBUG = 0,
-    TIMES = 10000,
+    TIMES = 5,
 
     DIST_UNIFORM = 0,
     DIST_NORMAL  = 1,
@@ -117,7 +117,7 @@ void benchmark(const char *name, const bench_params<T>& p, F select)
         auto t1 = now();
 
         if (!validate_select(buf.begin(), nth, buf.end())) {
-            std::printf("ERROR\n");
+            std::printf("%-20s   ERROR\n", name);
             return;
         }
 
@@ -129,8 +129,10 @@ void benchmark(const char *name, const bench_params<T>& p, F select)
 
     auto factor = 1e6;
     auto avg = sum / TIMES;
-    std::printf("%-20s    %9zu  %11.3f  %11.3f  %11.3f\n",
-                name, buf.size(), avg * factor, min * factor, max * factor);
+    std::printf("%-20s    %9zu  %11.3f  %11.3f  %11.3f  %5d\n",
+                name, buf.size(),
+                avg * factor, min * factor, max * factor,
+                TIMES);
 }
 
 int real_main(size_t n_elems, unsigned dist, size_t seed)
@@ -153,8 +155,8 @@ int real_main(size_t n_elems, unsigned dist, size_t seed)
 
     bench_params<elem_type> bp = { values, buf, idx };
 
-    std::printf("# %-20s  %9s  %11s  %11s  %11s\n",
-                "name", "size", "avg", "min", "max");
+    std::printf("# %-20s  %9s  %11s  %11s  %11s  %5s\n",
+                "name", "size", "avg", "min", "max", "count");
 
     using iterator = decltype(buf)::iterator;
 

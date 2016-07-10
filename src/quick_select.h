@@ -44,7 +44,7 @@ static It pivot_median3(It first, It last)
 }
 
 template <class It>
-static It partition(It first, It pivot, It last)
+static It partition_naive(It first, It pivot, It last)
 {
     auto pvalue = *pivot;
 
@@ -63,9 +63,56 @@ static It partition(It first, It pivot, It last)
     return store_it;
 }
 
+template <class It>
+static It partition_unroll(It first, It pivot, It last)
+{
+    auto pvalue = *pivot;
+
+    std::swap(*pivot, *(last - 1));
+
+    auto last_ = first + ((last - 1) - first) / 4 * 4;
+    auto store_it = first;
+    for (auto it = first; it < last_; it += 4) {
+        bool do_swap[4];
+        do_swap[0] = it[0] <= pvalue;
+        do_swap[1] = it[1] <= pvalue;
+        do_swap[2] = it[2] <= pvalue;
+        do_swap[3] = it[3] <= pvalue;
+
+        if (do_swap[0]) {
+            std::swap(it[0], *store_it);
+            ++store_it;
+        }
+        if (do_swap[1]) {
+            std::swap(it[1], *store_it);
+            ++store_it;
+        }
+        if (do_swap[2]) {
+            std::swap(it[2], *store_it);
+            ++store_it;
+        }
+        if (do_swap[3]) {
+            std::swap(it[3], *store_it);
+            ++store_it;
+        }
+    }
+    for (auto it = last_; it < last - 1; ++it) {
+        if (*it <= pvalue) {
+            std::swap(*it, *store_it);
+            ++store_it;
+        }
+    }
+
+    std::swap(*(last - 1), *store_it);
+
+    return store_it;
+}
+
 template <class It, class Pivot>
 static void quick_select_base(It first, It nth, It last, Pivot decide_pivot)
 {
+    auto partition = partition_unroll<It>;
+
     auto size = last - first;
     if (size <= 1)
         return;
