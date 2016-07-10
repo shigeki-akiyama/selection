@@ -8,8 +8,11 @@
 
 enum {
     DEBUG = 0,
-    N_ELEMS = 500,
     TIMES = 10000,
+
+    DIST_UNIFORM = 0,
+    DIST_NORMAL  = 1,
+    DIST_LAST    = 2,
 };
 
 using f64 = double;
@@ -73,14 +76,19 @@ static void test_quick_select(It first, It nth, It last)
 }
 
 template <class T>
-static std::vector<T> gen_random_vector(size_t size, unsigned long seed)
+static std::vector<T> gen_random_vector(size_t size, unsigned dist, 
+                                        unsigned long seed)
 {
     std::mt19937 engine(seed);
-    std::uniform_real_distribution<T> dist(-6.0f, 6.0f);
+    std::uniform_real_distribution<T> dist_uniform(-6.0f, 6.0f);
+    std::normal_distribution<T> dist_normal(0.0f, 5.0f);
 
     std::vector<T> xs(size);
     for (auto& x : xs)
-        x = dist(engine);
+        if (dist == DIST_UNIFORM)
+            x = dist_uniform(engine);
+        else
+            x = dist_normal(engine);
 
     return xs;
 }
@@ -121,22 +129,20 @@ void benchmark(const char *name, const bench_params<T>& p, F select)
 
     auto factor = 1e6;
     auto avg = sum / TIMES;
-    std::printf("%-20s  %6.3f  %6.3f  %6.3f\n",
-                name, avg * factor, min * factor, max * factor);
+    std::printf("%-20s    %9zu  %11.3f  %11.3f  %11.3f\n",
+                name, buf.size(), avg * factor, min * factor, max * factor);
 }
 
-int main(int argc, char *argv[])
+int real_main(size_t n_elems, unsigned dist, size_t seed)
 {
     using elem_type = f64;
 
-    unused(argc, argv);
-    size_t idx = N_ELEMS / 2;
-    size_t seed = (argc >= 2) ? std::atoi(argv[1]) : 0;
+    size_t idx = n_elems / 2;
     unused(idx);
 
     //std::random_device seed_gen;
     //auto seed = seed_gen();
-    auto values = gen_random_vector<elem_type>(N_ELEMS, seed);
+    auto values = gen_random_vector<elem_type>(n_elems, dist, seed);
 
     auto buf = values;
 
@@ -147,13 +153,41 @@ int main(int argc, char *argv[])
 
     bench_params<elem_type> bp = { values, buf, idx };
 
-    std::printf("# %-20s  %-6s  %-6s  %-6s\n",
-                "name", "avg", "min", "max");
+    std::printf("# %-20s  %9s  %11s  %11s  %11s\n",
+                "name", "size", "avg", "min", "max");
 
     using iterator = decltype(buf)::iterator;
-    benchmark("quick_select", bp, quick_select<iterator>);
+
+    benchmark("quick_select_middle", bp, 
+              quick_select_pivot_middle<iterator>);
+    benchmark("quick_select_median3", bp, 
+              quick_select_pivot_median3<iterator>);
     benchmark("std::nth_element", bp, std::nth_element<iterator>);
+    benchmark("std::sort", bp, 
+              [](iterator first, iterator nth, iterator last) {
+                  unused(nth);
+                  return std::sort(first, last);
+              });
+    benchmark("std::partial_sort", bp, 
+              [](iterator first, iterator nth, iterator last) {
+                  return std::partial_sort(first, nth + 1, last);
+              });
 
     return 0;
+
+}
+
+int main(int argc, char *argv[])
+{
+    size_t n_elems  = (argc >= 2) ? std::atoi(argv[1]) : 500;
+    int dist        = (argc >= 3) ? std::atoi(argv[2]) : DIST_NORMAL;
+    size_t seed     = (argc >= 4) ? std::atoi(argv[3]) : 0;
+
+    if (dist < 0 || dist >= DIST_LAST) {
+        std::printf("Usage: %s n_elems dist seed", argv[0]);
+        return 0;
+    }
+
+    return real_main(n_elems, unsigned(dist), seed);
 }
 
